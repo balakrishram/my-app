@@ -1,0 +1,167 @@
+/* AddStockModal.css
+   Styles for the "Add a stock" dialog box only. Relies on the CSS
+   variables defined on .ss-app in Portfolio.css (colors, shadows, etc),
+   so this file must be loaded on a page that also loads Portfolio.css. */
+
+.ss-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+
+.ss-modal {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 22px 26px 26px;
+  width: 100%;
+  max-width: 380px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ss-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  padding-top: 4px;
+  margin-bottom: -4px;
+}
+
+.ss-modal h3 {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 17px;
+  margin: 0;
+}
+
+.ss-modal-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg);
+  color: var(--mist);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ss-modal-close:hover {
+  background: var(--loss-soft);
+  color: var(--loss);
+}
+
+.ss-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--mist);
+  font-weight: 500;
+}
+
+.ss-modal input {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 11px;
+  outline: none;
+  width: 100%;
+}
+.ss-modal input:focus {
+  border-color: var(--brand);
+}
+
+.ss-modal-row {
+  display: flex;
+  gap: 12px;
+}
+.ss-modal-row label {
+  flex: 1;
+}
+
+/* Read-only, auto-calculated total — qty × avg purchase price. */
+.ss-modal-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--mist);
+}
+.ss-modal-total strong {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ss-modal-error {
+  font-size: 12.5px;
+  color: var(--loss);
+  background: var(--loss-soft);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.ss-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  padding-top: 4px;
+}
+
+.ss-btn-ghost,
+.ss-btn-solid {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 100px;
+  cursor: pointer;
+}
+
+/* Used to blend into var(--bg) with no border, making it nearly invisible.
+   Now has a visible border so the dialog always has a clear "leave"
+   action. */
+.ss-btn-ghost {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+.ss-btn-ghost:hover {
+  background: var(--border);
+}
+
+.ss-btn-solid {
+  background: var(--brand);
+  color: #fff;
+  border: none;
+}
+.ss-btn-solid:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

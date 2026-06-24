@@ -8,6 +8,12 @@
 // Connection settings come from a .env file in the project root (see
 // .env.example). Copy it to .env and fill in your real credentials —
 // .env is gitignored so it never gets committed or shared.
+//
+// Schema note: columns are named ticker / avgPurchasePrice / currentPrice
+// (previously symbol / avgCost / ltp), and dayChgPct has been removed.
+// CREATE TABLE IF NOT EXISTS only matters for brand-new databases — if you
+// already have a "holdings" table with the old column names, run the
+// migration in MIGRATION.md instead of relying on this.
 
 import "dotenv/config";
 import mysql from "mysql2/promise";
@@ -27,12 +33,11 @@ export const pool = mysql.createPool({
 export async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS holdings (
-      symbol     VARCHAR(20) PRIMARY KEY,
-      name       VARCHAR(120) NOT NULL,
-      qty        DECIMAL(14,4) NOT NULL,
-      avgCost    DECIMAL(14,4) NOT NULL,
-      ltp        DECIMAL(14,4) NOT NULL,
-      dayChgPct  DECIMAL(8,4) NOT NULL DEFAULT 0
+      ticker            VARCHAR(20) PRIMARY KEY,
+      name              VARCHAR(120) NOT NULL,
+      qty               DECIMAL(14,4) NOT NULL,
+      avgPurchasePrice  DECIMAL(14,4) NOT NULL,
+      currentPrice      DECIMAL(14,4) NOT NULL
     )
   `);
 }
