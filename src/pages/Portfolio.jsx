@@ -2,8 +2,7 @@
 // Modern light redesign. Styles are scoped under .ss-* classes in the
 // <style> block below — safe to drop into any existing app shell.
 
-import { useState } from "react";
-import { holdings } from "../data/holdings";
+import { useEffect, useState } from "react";
 
 const inr = (n, opts = {}) =>
   "₹" +
@@ -51,8 +50,113 @@ function buildDonut(rows, total) {
   });
 }
 
+const EMPTY_FORM = { symbol: "", name: "", qty: "", avgCost: "", ltp: "", dayChgPct: "" };
+
 export default function Portfolio() {
+  const [holdings, setHoldings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [openSymbol, setOpenSymbol] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/holdings")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load holdings");
+        return res.json();
+      })
+      .then((data) => setHoldings(data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleAddStock(e) {
+    e.preventDefault();
+    setFormError(null);
+
+    const { symbol, name, qty, avgCost, ltp, dayChgPct } = form;
+    if (!symbol.trim() || !name.trim() || !qty || !avgCost || !ltp) {
+      setFormError("Symbol, name, qty, avg cost, and LTP are all required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/holdings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: symbol.trim().toUpperCase(),
+          name: name.trim(),
+          qty: Number(qty),
+          avgCost: Number(avgCost),
+          ltp: Number(ltp),
+          dayChgPct: dayChgPct ? Number(dayChgPct) : 0,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not add stock");
+
+      setHoldings((prev) =>
+        [...prev, data].sort((a, b) => a.symbol.localeCompare(b.symbol))
+      );
+      setForm(EMPTY_FORM);
+      setShowAddForm(false);
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(symbol) {
+    const prev = holdings;
+    setHoldings((h) => h.filter((r) => r.symbol !== symbol));
+    try {
+      const res = await fetch(`/api/holdings/${symbol}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 404) throw new Error("Delete failed");
+    } catch {
+      setHoldings(prev); // roll back on failure
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="ss-app">
+        <div className="ss-shell" style={{ paddingTop: 80, textAlign: "center", color: "#7a7e85" }}>
+          Loading holdings…
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="ss-app">
+        <div className="ss-shell" style={{ paddingTop: 80, textAlign: "center", color: "#e0405a" }}>
+          Couldn't load holdings: {error}
+          <div style={{ marginTop: 10, color: "#7a7e85", fontSize: 13 }}>
+            Is the API server running? Try <code>npm run server</code> (or <code>npm run dev:all</code>).
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (holdings.length === 0) {
+    return (
+      <div className="ss-app">
+        <div className="ss-shell" style={{ paddingTop: 80, textAlign: "center", color: "#7a7e85" }}>
+          No holdings yet. Add your first stock to get started.
+        </div>
+      </div>
+    );
+  }
+
   const { invested, currentValue, pnl, pnlPct, dayPnl, dayPct } = summarize(holdings);
   const gain = pnl >= 0;
   const dayGain = dayPnl >= 0;
@@ -268,12 +372,99 @@ export default function Portfolio() {
           .ss-hero-value { font-size: 40px; }
           .ss-donut-row { flex-direction: column; align-items: stretch; }
         }
+
+        .ss-add-btn {
+          font-family: 'Inter', sans-serif;
+          font-size: 13px; font-weight: 600;
+          color: #fff;
+          background: var(--brand);
+          border: none;
+          padding: 8px 16px;
+          border-radius: 100px;
+          cursor: pointer;
+        }
+        .ss-add-btn:hover { opacity: 0.92; }
+
+        .ss-hold-remove {
+          position: absolute;
+          top: 10px; right: 10px;
+          width: 22px; height: 22px;
+          border-radius: 50%;
+          border: none;
+          background: var(--bg);
+          color: var(--mist);
+          font-size: 15px;
+          line-height: 1;
+          cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          opacity: 0;
+          transition: opacity 0.15s ease;
+        }
+        .ss-hold-card:hover .ss-hold-remove { opacity: 1; }
+        .ss-hold-remove:hover { background: var(--loss-soft); color: var(--loss); }
+
+        .ss-modal-overlay {
+          position: fixed; inset: 0;
+          background: rgba(20,20,20,0.35);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 50;
+          padding: 20px;
+        }
+        .ss-modal {
+          background: var(--surface);
+          border-radius: 20px;
+          padding: 26px;
+          width: 100%; max-width: 380px;
+          box-shadow: var(--shadow-md);
+          display: flex; flex-direction: column; gap: 12px;
+        }
+        .ss-modal h3 {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 17px; margin: 0 0 4px;
+        }
+        .ss-modal label {
+          display: flex; flex-direction: column; gap: 5px;
+          font-size: 12.5px; color: var(--mist); font-weight: 500;
+        }
+        .ss-modal input {
+          font-family: 'Inter', sans-serif;
+          font-size: 14px; color: var(--ink);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 9px 11px;
+          outline: none;
+        }
+        .ss-modal input:focus { border-color: var(--brand); }
+        .ss-modal-row { display: flex; gap: 12px; }
+        .ss-modal-row label { flex: 1; }
+        .ss-modal-error {
+          font-size: 12.5px; color: var(--loss);
+          background: var(--loss-soft);
+          padding: 8px 10px; border-radius: 8px;
+        }
+        .ss-modal-actions {
+          display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;
+        }
+        .ss-btn-ghost, .ss-btn-solid {
+          font-family: 'Inter', sans-serif;
+          font-size: 13px; font-weight: 600;
+          padding: 8px 16px;
+          border-radius: 100px;
+          cursor: pointer;
+          border: none;
+        }
+        .ss-btn-ghost { background: var(--bg); color: var(--ink); }
+        .ss-btn-solid { background: var(--brand); color: #fff; }
+        .ss-btn-solid:disabled { opacity: 0.6; cursor: default; }
       `}</style>
 
       <div className="ss-shell">
         <div className="ss-nav">
           <div className="ss-brand"><span className="ss-brand-dot" />StockSage</div>
-          <div className="ss-sync"><span className="ss-sync-dot" />Synced just now</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button className="ss-add-btn" onClick={() => setShowAddForm(true)}>+ Add stock</button>
+            <div className="ss-sync"><span className="ss-sync-dot" />Synced just now</div>
+          </div>
         </div>
 
         <div className="ss-hero">
@@ -353,6 +544,16 @@ export default function Portfolio() {
                 onClick={() => setOpenSymbol(open ? null : r.symbol)}
               >
                 <div className="ss-hold-accent" style={{ background: colorOf(r.symbol) }} />
+                <button
+                  className="ss-hold-remove"
+                  title={`Remove ${r.symbol}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(r.symbol);
+                  }}
+                >
+                  ×
+                </button>
                 <div className="ss-hold-top">
                   <div>
                     <div className="ss-hold-name">{r.name}</div>
@@ -377,6 +578,80 @@ export default function Portfolio() {
             );
           })}
         </div>
+
+        {showAddForm && (
+          <div className="ss-modal-overlay" onClick={() => setShowAddForm(false)}>
+            <form className="ss-modal" onClick={(e) => e.stopPropagation()} onSubmit={handleAddStock}>
+              <h3>Add a stock</h3>
+
+              <label>
+                Symbol
+                <input
+                  value={form.symbol}
+                  onChange={(e) => setForm({ ...form, symbol: e.target.value })}
+                  placeholder="e.g. INFY"
+                  autoFocus
+                />
+              </label>
+              <label>
+                Name
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Infosys"
+                />
+              </label>
+              <div className="ss-modal-row">
+                <label>
+                  Quantity
+                  <input
+                    type="number" step="any"
+                    value={form.qty}
+                    onChange={(e) => setForm({ ...form, qty: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Avg cost
+                  <input
+                    type="number" step="any"
+                    value={form.avgCost}
+                    onChange={(e) => setForm({ ...form, avgCost: e.target.value })}
+                  />
+                </label>
+              </div>
+              <div className="ss-modal-row">
+                <label>
+                  LTP
+                  <input
+                    type="number" step="any"
+                    value={form.ltp}
+                    onChange={(e) => setForm({ ...form, ltp: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Day chg %
+                  <input
+                    type="number" step="any"
+                    value={form.dayChgPct}
+                    onChange={(e) => setForm({ ...form, dayChgPct: e.target.value })}
+                    placeholder="0"
+                  />
+                </label>
+              </div>
+
+              {formError && <div className="ss-modal-error">{formError}</div>}
+
+              <div className="ss-modal-actions">
+                <button type="button" className="ss-btn-ghost" onClick={() => setShowAddForm(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="ss-btn-solid" disabled={submitting}>
+                  {submitting ? "Adding…" : "Add stock"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
